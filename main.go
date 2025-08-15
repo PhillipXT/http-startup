@@ -9,31 +9,37 @@ import (
 )
 
 const filePath = "messages.txt"
+const port = ":42069"
+
+// Run the application, then print to the port from the command line:
+// printf "Can you hear me now?\r\n" | nc -w 1 127.0.0.1 42069
 
 func main() {
 
-    listener, err := net.Listen("tcp", "localhost:42069")
+    listener, err := net.Listen("tcp", port)
     if err != nil {
-        log.Fatal(err)
+        log.Fatalf("error listening for TCP traffic: %s\n", err)
     }
 
     defer listener.Close()
 
+    fmt.Println("Listening for TCP traffic on", port)
+
     for {
         conn, err := listener.Accept()
         if err != nil {
-            log.Fatal(err)
+            log.Fatal("error: %s\n", err)
         }
 
-        fmt.Println("Connection accepted:", conn)
+        fmt.Println("Accepted connection from:", conn.RemoteAddr())
 
         lines := getLinesChannel(conn)
 
         for line := range lines {
-            fmt.Println("read:", line)
+            fmt.Println(line)
         }
 
-        fmt.Println("Connection closed")
+        fmt.Printf("Connection to %s closed\n", conn.RemoteAddr())
     }
 }
 
