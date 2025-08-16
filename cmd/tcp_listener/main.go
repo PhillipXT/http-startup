@@ -55,11 +55,16 @@ func getLinesChannel(f io.ReadCloser) <-chan string {
         for {
             buffer := make([]byte, 8)
             n, err := f.Read(buffer)
-            if err == io.EOF {
-                break
-            } else if err != nil {
-                fmt.Printf("error: %s\n", err.Error())
-                break
+            if err != nil {
+                if line != "" {
+                    ch <- fmt.Sprintf("%s", line)
+                }
+                if err == io.EOF {
+                    break
+                } else {
+                    fmt.Printf("error: %s\n", err.Error())
+                    return
+                }
             }
             parts := strings.Split(string(buffer[:n]), "\n")
             for i := 0; i < len(parts) - 1; i++ {
