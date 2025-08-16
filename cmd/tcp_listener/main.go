@@ -30,7 +30,7 @@ func main() {
     for {
         conn, err := listener.Accept()
         if err != nil {
-            log.Fatal("error: %s\n", err)
+            log.Fatalf("error: %s\n", err)
         }
 
         fmt.Println("Accepted connection from:", conn.RemoteAddr())
