@@ -2,10 +2,10 @@ package main
 
 import (
     "fmt"
-    "io"
     "log"
     "net"
-    "strings"
+
+    "github.com/PhillipXT/http-startup/internal/request"
 )
 
 const filePath = "messages.txt"
@@ -35,45 +35,18 @@ func main() {
 
         fmt.Println("Accepted connection from:", conn.RemoteAddr())
 
-        lines := getLinesChannel(conn)
-
-        for line := range lines {
-            fmt.Println(line)
+        req, err := request.RequestFromReader(conn)
+        if err != nil {
+            log.Printf("error reading from connection: %s\n", err)
         }
+
+        line := req.RequestLine
+
+        fmt.Println("Request line:")
+        fmt.Printf("- Method: %s\n", line.Method)
+        fmt.Printf("- Target: %s\n", line.RequestTarget)
+        fmt.Printf("- Version: %s\n", line.HttpVersion)
 
         fmt.Printf("Connection to %s closed\n", conn.RemoteAddr())
     }
-}
-
-func getLinesChannel(f io.ReadCloser) <-chan string {
-
-    ch := make(chan string)
-
-    go func() {
-        defer close(ch)
-        line := ""
-        for {
-            buffer := make([]byte, 8)
-            n, err := f.Read(buffer)
-            if err != nil {
-                if line != "" {
-                    ch <- fmt.Sprintf("%s", line)
-                }
-                if err == io.EOF {
-                    break
-                } else {
-                    fmt.Printf("error: %s\n", err.Error())
-                    return
-                }
-            }
-            parts := strings.Split(string(buffer[:n]), "\n")
-            for i := 0; i < len(parts) - 1; i++ {
-                ch <- fmt.Sprintf("%s%s", line, parts[i])
-                line = ""
-            }
-            line += parts[len(parts)-1]
-        }
-    }()
-
-    return ch
 }
