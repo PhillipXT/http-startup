@@ -9,6 +9,7 @@ import (
 
 type Request struct {
     RequestLine RequestLine
+    state requestState
 }
 
 type RequestLine struct {
@@ -17,37 +18,74 @@ type RequestLine struct {
     Method string
 }
 
+type requestState int
+
 const (
-    crlf = "\r\n"
+    requestStateInitialized requestState = iota
+    requestStateDone
 )
+
+const crlf = "\r\n"
+const bufferSize = 8
 
 func RequestFromReader (reader io.Reader) (*Request, error) {
 
-    data, err := io.ReadAll(reader)
-    if err != nil {
-        return nil, err
+    buffer := make([]byte, bufferSize, bufferSize)
+
+    readToIndex := 0
+
+    request := &Request{
+        state: requestStateInitialized,
     }
+
+    for request.state != requestStateDone {
+        if readToIndex >= len(buffer) {
+            newB := make([]byte, len(buffer) * 2)
+            copy(newB, buffer)
+            buffer = newB
+        }
+
+        bytesRead, err := reader.Read(buffer[readToIndex:])
+        if err != nil {
+            if err == io.EOF {
+                request.state = requestStateDone
+                break
+            }
+            return nil, err
+        }
+
+        readToIndex += bytesRead
+
+        bytesParsed, err := request.parse(buffer[:readToIndex])
+        if err != nil {
+            return nil, err
+        }
+
+        copy(buffer, buffer[bytesParsed:])
+        readToIndex -= bytesParsed
+    }
+
+    return request, nil
+}
+
+func parseRequestLine(data []byte) (*RequestLine, int, error) {
 
     index := bytes.Index(data, []byte(crlf))
     if index == -1 {
-        return nil, fmt.Errorf("Missing CRLF in request line")
+        return nil, 0, nil
     }
 
     line := string(data[:index])
 
-    request_line, err := ParseRequestLine(line)
+    request_line, err := requestLineFromString(line)
     if err != nil {
-        return nil, err
+        return nil, 0, err
     }
 
-    request := Request {
-        RequestLine: *request_line,
-    }
-
-    return &request, nil
+    return request_line, index + 2, nil
 }
 
-func ParseRequestLine(line string) (*RequestLine, error) {
+func requestLineFromString(line string) (*RequestLine, error) {
 
     parts := strings.Split(line, " ")
 
@@ -85,3 +123,24 @@ func ParseRequestLine(line string) (*RequestLine, error) {
 
     return &request_line, nil
 }
+
+func (r *Request) parse(data []byte) (int, error) {
+    switch r.state {
+    case requestStateInitialized:
+        requestLine, n, err := parseRequestLine(data)
+        if err != nil {
+            return 0, err
+        }
+        if n == 0 {
+            return 0, nil
+        }
+        r.RequestLine = *requestLine
+        r.state = requestStateDone
+        return n, nil
+    case requestStateDone:
+        return 0, fmt.Errorf("error: trying to read but operation is complete")
+    default:
+        return 0, fmt.Errorf("unknown state")
+    }
+}
+
