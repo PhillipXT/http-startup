@@ -78,7 +78,7 @@ func ParseRequestLine(line string) (*RequestLine, error) {
     }
 
     request_line := RequestLine {
-        HttpVersion: version_parts[1],
+        HttpVersion: version,
         RequestTarget: target,
         Method: method,
     }
