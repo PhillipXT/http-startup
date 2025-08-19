@@ -1,8 +1,10 @@
 package headers
 
 import (
-    "fmt"
     "bytes"
+    "fmt"
+    "log"
+    "slices"
     "strings"
 )
 
@@ -30,11 +32,20 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
         return 0, false, fmt.Errorf("Malformed header: %s", line)
     }
 
-    key := strings.TrimSpace(line[:colon])
+    // Don't trim space in the key because we need to check for invalid
+    // spaces, i.e. "Host :", so we need the key to be "Host "
+    key := strings.ToLower(line[:colon])
     value := strings.TrimSpace(line[colon + 1:])
 
-    if len(key) != colon {
-        return 0, false, fmt.Errorf("Space found inside header key: %s", line)
+    log.Printf("Header line: %s\n", line)
+    log.Printf("Parsed header: [%s] == [%s]\n", key, value)
+
+    validChars := []byte{'!','#','$','%','&','\'','*','+','-','.','^','_','`','|','~'}
+
+    for _, char := range []byte(key) {
+        if (char <= 'a' || char >= 'z') && (char <= 'A' || char >= 'Z') && (char <= '0' || char >= '9') && !slices.Contains(validChars, char) {
+            return 0, false, fmt.Errorf("Header key contains illegal characters: %s", line)
+        }
     }
 
     h[key] = value

@@ -15,23 +15,23 @@ func TestHeaders(t *testing.T) {
     n, done, err := headers.Parse(data)
     require.NoError(t, err)
     require.NotNil(t, headers)
-    assert.Equal(t, "localhost:42069", headers["Host"])
+    assert.Equal(t, "localhost:42069", headers["host"])
     assert.Equal(t, 23, n)
     assert.False(t, done)
 
     // Test: Valid single header with extra spacing
     headers = NewHeaders()
-    data = []byte("  Host:  localhost:42069\r\n\r\n")
+    data = []byte("    Host:  localhost:42069  \r\n\r\n")
     n, done, err = headers.Parse(data)
     require.NoError(t, err)
     require.NotNil(t, headers)
-    assert.Equal(t, "localhost:42069", headers["Host"])
-    assert.Equal(t, 26, n)
+    assert.Equal(t, "localhost:42069", headers["host"])
+    assert.Equal(t, 30, n)
     assert.False(t, done)
 
     // Test: Single header with invalid spacing
     headers = NewHeaders()
-    data = []byte("       Host : localhost:42069       \r\n\r\n")
+    data = []byte("Host : localhost:42069\r\n\r\n")
     n, done, err = headers.Parse(data)
     require.Error(t, err)
     assert.Equal(t, 0, n)
@@ -44,8 +44,16 @@ func TestHeaders(t *testing.T) {
     require.NoError(t, err)
     require.NotNil(t, headers)
     assert.Equal(t, "localhost:42069", headers["Host"])
-    assert.Equal(t, "text/json", headers["Content-Type"])
+    assert.Equal(t, "text/json", headers["content-type"])
     assert.Equal(t, 25, n)
+    assert.False(t, done)
+
+    // Test: Single header with invalid character
+    headers = NewHeaders()
+    data = []byte("Host@: localhost:42069\r\n\r\n")
+    n, done, err = headers.Parse(data)
+    require.Error(t, err)
+    assert.Equal(t, 0, n)
     assert.False(t, done)
 
     // Test: Valid done
