@@ -48,7 +48,11 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
         }
     }
 
-    h[key] = value
+    if val, ok := h[key]; ok {
+        h[key] = val + ", " + value
+    } else {
+        h[key] = value
+    }
 
     return index + 2, false, nil
 }

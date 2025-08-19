@@ -66,4 +66,14 @@ func TestHeaders(t *testing.T) {
     assert.Equal(t, 2, n)
     assert.True(t, done)
 
+    // Test: Valid two headers with existing headers
+    headers = map[string]string {"multiples": "itemOne"}
+    data = []byte("multiples: itemTwo\r\n")
+    n, done, err = headers.Parse(data)
+    require.NoError(t, err)
+    require.NotNil(t, headers)
+    assert.Equal(t, "itemOne, itemTwo", headers["multiples"])
+    assert.Equal(t, 20, n)
+    assert.False(t, done)
+
 }
