@@ -1,11 +1,11 @@
 package main
 
 import (
-    "fmt"
-    "log"
-    "net"
+	"fmt"
+	"log"
+	"net"
 
-    "github.com/PhillipXT/http-startup/internal/request"
+	"github.com/PhillipXT/http-startup/internal/request"
 )
 
 const filePath = "messages.txt"
@@ -18,35 +18,39 @@ const port = ":42069"
 
 func main() {
 
-    listener, err := net.Listen("tcp", port)
-    if err != nil {
-        log.Fatalf("error listening for TCP traffic: %s\n", err)
-    }
+	listener, err := net.Listen("tcp", port)
+	if err != nil {
+		log.Fatalf("error listening for TCP traffic: %s\n", err)
+	}
 
-    defer listener.Close()
+	defer listener.Close()
 
-    fmt.Println("Listening for TCP traffic on", port)
+	fmt.Println("Listening for TCP traffic on", port)
 
-    for {
-        conn, err := listener.Accept()
-        if err != nil {
-            log.Fatalf("error: %s\n", err)
-        }
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			log.Fatalf("error: %s\n", err)
+		}
 
-        fmt.Println("Accepted connection from:", conn.RemoteAddr())
+		fmt.Println("Accepted connection from:", conn.RemoteAddr())
 
-        req, err := request.RequestFromReader(conn)
-        if err != nil {
-            log.Printf("error reading from connection: %s\n", err)
-        }
+		req, err := request.RequestFromReader(conn)
+		if err != nil {
+			log.Printf("error reading from connection: %s\n", err)
+		}
 
-        line := req.RequestLine
+		line := req.RequestLine
 
-        fmt.Println("Request line:")
-        fmt.Printf("- Method: %s\n", line.Method)
-        fmt.Printf("- Target: %s\n", line.RequestTarget)
-        fmt.Printf("- Version: %s\n", line.HttpVersion)
+		fmt.Println("Request line:")
+		fmt.Printf("- Method: %s\n", line.Method)
+		fmt.Printf("- Target: %s\n", line.RequestTarget)
+		fmt.Printf("- Version: %s\n", line.HttpVersion)
+		fmt.Println("Headers:")
+		for key, value := range req.Headers {
+			fmt.Printf("- %s: %s\n", key, value)
+		}
 
-        fmt.Printf("Connection to %s closed\n", conn.RemoteAddr())
-    }
+		fmt.Printf("Connection to %s closed\n", conn.RemoteAddr())
+	}
 }
