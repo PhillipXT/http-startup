@@ -12,6 +12,12 @@ type Headers map[string]string
 
 const crlf = "\r\n"
 
+func (h Headers) Get(key string) (string, bool) {
+	key = strings.ToLower(key)
+	val, ok := h[key]
+	return val, ok
+}
+
 func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 
 	// If no CRLF is found, we don't have enough data to process yet

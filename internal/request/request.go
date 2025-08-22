@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"strconv"
 	"strings"
 
 	"github.com/PhillipXT/http-startup/internal/headers"
@@ -13,6 +14,7 @@ import (
 type Request struct {
 	RequestLine RequestLine
 	Headers     headers.Headers
+	Body        []byte
 	state       requestState
 }
 
@@ -27,6 +29,7 @@ type requestState int
 const (
 	requestStateInitialized requestState = iota
 	requestStateParsingHeaders
+	requestStateParsingBody
 	requestStateDone
 )
 
@@ -41,6 +44,7 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 
 	request := &Request{
 		Headers: headers.NewHeaders(),
+		Body:    []byte{},
 		state:   requestStateInitialized,
 	}
 
@@ -163,14 +167,32 @@ func (r *Request) parseSingle(data []byte) (int, error) {
 		r.state = requestStateParsingHeaders
 		return n, nil
 	case requestStateParsingHeaders:
-		log.Printf("Parsing data: [%s]", string(data))
 		n, done, err := r.Headers.Parse(data)
 		if err != nil {
 			return 0, err
 		} else if done {
-			r.state = requestStateDone
+			r.state = requestStateParsingBody
 		}
 		return n, nil
+	case requestStateParsingBody:
+		log.Printf("Parsing data: [%s]", string(data))
+		cl, ok := r.Headers.Get("Content-Length")
+		if !ok {
+			r.state = requestStateDone
+			return len(data), nil
+		}
+		length, err := strconv.Atoi(cl)
+		if err != nil {
+			return 0, fmt.Errorf("error getting content-length: %s", err)
+		}
+		r.Body = append(r.Body, data...)
+		log.Printf("Content-Length: Expected(%d) Actual(%d)", length, len(r.Body))
+		if len(r.Body) > length {
+			return 0, fmt.Errorf("Content-Length does not match: received %d, expected %d", len(r.Body), int(length))
+		} else if len(r.Body) == length {
+			r.state = requestStateDone
+		}
+		return len(data), nil
 	case requestStateDone:
 		return 0, fmt.Errorf("error: trying to read but operation is complete")
 	default:
