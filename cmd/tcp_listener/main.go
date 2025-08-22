@@ -8,13 +8,15 @@ import (
 	"github.com/PhillipXT/http-startup/internal/request"
 )
 
-const filePath = "messages.txt"
 const port = ":42069"
 
 // Run the application, then print to the port from the command line:
 // go run . | tee /tmp/tcp.txt
 // printf "Can you hear me now?\r\n" | nc -w 1 127.0.0.1 42069
 // nc -v localhost 42069
+// Application has changed and the above no longer works, must use
+// curl now to send a valid request:
+// curl localhost:42069
 
 func main() {
 
