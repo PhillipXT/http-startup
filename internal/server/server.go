@@ -5,6 +5,8 @@ import (
 	"log"
 	"net"
 	"sync/atomic"
+
+	"github.com/PhillipXT/http-startup/internal/response"
 )
 
 type Server struct {
@@ -44,7 +46,7 @@ func (s *Server) listen() {
 			if s.closed.Load() {
 				return
 			}
-			log.Printf("Error accepting connection: %v", err)
+			log.Printf("Error accepting connection: %s", err)
 			continue
 		}
 
@@ -54,10 +56,19 @@ func (s *Server) listen() {
 
 func (s *Server) handle(conn net.Conn) {
 	defer conn.Close()
-	res := ("HTTP/1.1 200 OK\r\n" +
-		"Content-Type: text/plain\r\n" +
-		"Content-Length: 13\r\n\r\n" +
-		"Hello World!\n")
 
-	conn.Write([]byte(res))
+	h := response.GetDefaultHeaders(0)
+
+	err := response.WriteStatusLine(conn, response.StatusCodeOK)
+	if err != nil {
+		log.Printf("Error writing status line: %s", err)
+	}
+
+	err = response.WriteHeaders(conn, h)
+	if err != nil {
+		log.Printf("Error writing headers: %s", err)
+	}
+
+	//res := "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 13\r\n\r\nHello World!\n"
+	//conn.Write([]byte(res))
 }
