@@ -12,10 +12,18 @@ type Headers map[string]string
 
 const crlf = "\r\n"
 
+func NewHeaders() Headers {
+	return make(map[string]string)
+}
+
 func (h Headers) Get(key string) (string, bool) {
 	key = strings.ToLower(key)
 	val, ok := h[key]
 	return val, ok
+}
+
+func (h Headers) Set(key, value string) {
+	h[key] = value
 }
 
 func (h Headers) Parse(data []byte) (n int, done bool, err error) {
@@ -61,8 +69,4 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	}
 
 	return index + 2, false, nil
-}
-
-func NewHeaders() Headers {
-	return make(map[string]string)
 }
