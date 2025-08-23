@@ -1,20 +1,39 @@
 package server
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"sync/atomic"
 
+	"github.com/PhillipXT/http-startup/internal/request"
 	"github.com/PhillipXT/http-startup/internal/response"
 )
 
 type Server struct {
 	listener net.Listener
+	handler  Handler
 	closed   atomic.Bool
 }
 
-func Serve(port int) (*Server, error) {
+type HandlerError struct {
+	StatusCode response.StatusCode
+	Message    string
+}
+
+func (he HandlerError) Write(w io.Writer) {
+	response.WriteStatusLine(w, he.StatusCode)
+	messageBytes := []byte(he.Message)
+	headers := response.GetDefaultHeaders(len(messageBytes))
+	response.WriteHeaders(w, headers)
+	w.Write(messageBytes)
+}
+
+type Handler func(w io.Writer, req *request.Request) *HandlerError
+
+func Serve(port int, handler Handler) (*Server, error) {
 
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
@@ -23,6 +42,7 @@ func Serve(port int) (*Server, error) {
 
 	server := &Server{
 		listener: listener,
+		handler:  handler,
 	}
 
 	go server.listen()
@@ -57,9 +77,31 @@ func (s *Server) listen() {
 func (s *Server) handle(conn net.Conn) {
 	defer conn.Close()
 
-	h := response.GetDefaultHeaders(0)
+	r, err := request.RequestFromReader(conn)
+	if err != nil {
+		hErr := &HandlerError{
+			StatusCode: response.StatusCodeBadRequest,
+			Message:    err.Error(),
+		}
+		hErr.Write(conn)
+		return
+	}
 
-	err := response.WriteStatusLine(conn, response.StatusCodeOK)
+	buffer := bytes.NewBuffer([]byte{})
+
+	hErr := s.handler(buffer, r)
+	if hErr != nil {
+		hErr.Write(conn)
+		return
+	}
+
+	b := buffer.Bytes()
+
+	fmt.Println(r.Body)
+
+	h := response.GetDefaultHeaders(len(b))
+
+	err = response.WriteStatusLine(conn, response.StatusCodeOK)
 	if err != nil {
 		log.Printf("Error writing status line: %s", err)
 	}
@@ -68,6 +110,8 @@ func (s *Server) handle(conn net.Conn) {
 	if err != nil {
 		log.Printf("Error writing headers: %s", err)
 	}
+
+	conn.Write(b)
 
 	//res := "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 13\r\n\r\nHello World!\n"
 	//conn.Write([]byte(res))
