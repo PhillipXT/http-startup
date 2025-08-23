@@ -15,16 +15,15 @@ const (
 	StatusCodeInternalServerError StatusCode = 500
 )
 
+var statusCodes = map[StatusCode]string{
+	200: "OK",
+	400: "Bad Request",
+	500: "Internal Server Error",
+}
+
 func getStatusLine(statusCode StatusCode) []byte {
-	reasonPhrase := ""
-	switch statusCode {
-	case StatusCodeOK:
-		reasonPhrase = "OK"
-	case StatusCodeBadRequest:
-		reasonPhrase = "Bad Request"
-	case StatusCodeInternalServerError:
-		reasonPhrase = "Internal Server Error"
-	}
+
+	reasonPhrase := statusCodes[statusCode]
 	return []byte(fmt.Sprintf("HTTP/1.1 %d %s\r\n", statusCode, reasonPhrase))
 }
 
