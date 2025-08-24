@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"crypto/sha256"
 	"fmt"
 	"io"
@@ -39,15 +40,41 @@ func handler(w *response.Writer, req *request.Request) {
 		proxyHandler(w, req)
 		return
 	}
+
 	if target == "/yourproblem" {
 		handler400(w, req)
 		return
 	}
+
 	if target == "/myproblem" {
 		handler500(w, req)
 		return
 	}
+
+	if target == "/video" {
+		videoHandler(w, req)
+		return
+	}
+
 	handler200(w, req)
+}
+
+func videoHandler(w *response.Writer, req *request.Request) {
+
+	log.Println("Processing video request")
+
+	bytes, err := os.ReadFile("assets/vim.mp4")
+	if err != nil {
+		handler500(w, req)
+		return
+	}
+
+	h := response.GetDefaultHeaders(len(bytes))
+	h.Set("Content-Type", "video/mp4")
+
+	w.WriteStatusLine(response.StatusCodeOK)
+	w.WriteHeaders(h)
+	w.WriteBody(bytes)
 }
 
 func proxyHandler(w *response.Writer, req *request.Request) {
