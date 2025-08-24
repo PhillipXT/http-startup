@@ -1,9 +1,13 @@
 package main
 
 import (
+	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"github.com/PhillipXT/http-startup/internal/request"
@@ -28,29 +32,85 @@ func main() {
 }
 
 func handler(w *response.Writer, req *request.Request) {
-	if req.RequestLine.RequestTarget == "/yourproblem" {
-		body := "<html><head><title>400 Bad Request</title></head><body><h1>Bad Request</h1><p>Your request honestly kinda sucked.</p></body></html>"
-		h := response.GetDefaultHeaders(len(body))
-		h.Set("Content-Type", "text/html")
-		w.WriteStatusLine(response.StatusCodeBadRequest)
-		w.WriteHeaders(h)
-		w.WriteBody([]byte(body))
+	target := req.RequestLine.RequestTarget
+
+	if strings.HasPrefix(target, "/httpbin") {
+		proxyHandler(w, req)
 		return
 	}
-	if req.RequestLine.RequestTarget == "/myproblem" {
-		body := "<html><head><title>500 Internal Server Error</title></head><body><h1>Internal Server Error</h1><p>Okay, you know what? This one is on me.</p></body></html>"
-		h := response.GetDefaultHeaders(len(body))
-		h.Set("Content-Type", "text/html")
-		w.WriteStatusLine(response.StatusCodeInternalServerError)
-		w.WriteHeaders(h)
-		w.WriteBody([]byte(body))
+	if target == "/yourproblem" {
+		handler400(w, req)
 		return
 	}
+	if target == "/myproblem" {
+		handler500(w, req)
+		return
+	}
+	handler200(w, req)
+}
+
+func proxyHandler(w *response.Writer, req *request.Request) {
+	log.Println("Processing chunked response")
+	target := strings.TrimPrefix(req.RequestLine.RequestTarget, "/httpbin/")
+	url := "https://httpbin.org/" + target
+	h := response.GetDefaultHeaders(0)
+	h.Delete("Content-Length")
+	h.Set("Transfer-Encoding", "chunked")
+	r, err := http.Get(url)
+	if err != nil {
+		handler500(w, req)
+		return
+	}
+	w.WriteStatusLine(response.StatusCodeOK)
+	w.WriteHeaders(h)
+	buffer := make([]byte, 64)
+	for {
+		n, err := r.Body.Read(buffer)
+		if n > 0 {
+			_, err := w.WriteChunkedBody(buffer[:n])
+			if err != nil {
+				fmt.Println("Error writing chunked body:", err)
+				break
+			}
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			fmt.Println("Error reading response body:", err)
+			return
+		}
+	}
+	log.Println("Chunked response complete")
+	_, err = w.WriteChunkedBodyDone()
+	if err != nil {
+		fmt.Println("Error completing chunked body:", err)
+	}
+}
+
+func handler200(w *response.Writer, req *request.Request) {
 	body := "<html><head><title>200 OK</title></head><body><h1>Success!</h1><p>Your request was an absolute banger.</p></body></html>"
 	h := response.GetDefaultHeaders(len(body))
 	h.Set("Content-Type", "text/html")
 	w.WriteStatusLine(response.StatusCodeOK)
 	w.WriteHeaders(h)
 	w.WriteBody([]byte(body))
-	return
+}
+
+func handler400(w *response.Writer, req *request.Request) {
+	body := "<html><head><title>400 Bad Request</title></head><body><h1>Bad Request</h1><p>Your request honestly kinda sucked.</p></body></html>"
+	h := response.GetDefaultHeaders(len(body))
+	h.Set("Content-Type", "text/html")
+	w.WriteStatusLine(response.StatusCodeBadRequest)
+	w.WriteHeaders(h)
+	w.WriteBody([]byte(body))
+}
+
+func handler500(w *response.Writer, req *request.Request) {
+	body := "<html><head><title>500 Internal Server Error</title></head><body><h1>Internal Server Error</h1><p>Okay, you know what? This one is on me.</p></body></html>"
+	h := response.GetDefaultHeaders(len(body))
+	h.Set("Content-Type", "text/html")
+	w.WriteStatusLine(response.StatusCodeInternalServerError)
+	w.WriteHeaders(h)
+	w.WriteBody([]byte(body))
 }

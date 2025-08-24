@@ -26,6 +26,10 @@ func (h Headers) Set(key, value string) {
 	h[key] = value
 }
 
+func (h Headers) Delete(key string) {
+	delete(h, key)
+}
+
 func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 
 	// If no CRLF is found, we don't have enough data to process yet
@@ -51,8 +55,8 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	key := strings.ToLower(line[:colon])
 	value := strings.TrimSpace(line[colon+1:])
 
-	log.Printf("Header line: %s\n", line)
-	log.Printf("Parsed header: [%s] == [%s]\n", key, value)
+	//log.Printf("Header line: %s\n", line)
+	log.Printf("Parsed request header: %s: %s\n", key, value)
 
 	validChars := []byte{'!', '#', '$', '%', '&', '\'', '*', '+', '-', '.', '^', '_', '`', '|', '~'}
 
