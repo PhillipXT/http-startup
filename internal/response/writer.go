@@ -84,15 +84,34 @@ func (w *Writer) WriteChunkedBody(p []byte) (int, error) {
 	if r := checkState(w.state, writerStateChunking); r != "" {
 		return 0, errors.New(r)
 	}
-	return w.writer.Write([]byte(fmt.Sprintf("%x\r\n%s\r\n", len(p), string(p))))
+	t := []byte(fmt.Sprintf("%x\r\n%s\r\n", len(p), string(p)))
+	return w.writer.Write(t)
 }
 
 func (w *Writer) WriteChunkedBodyDone() (int, error) {
 	if r := checkState(w.state, writerStateChunking); r != "" {
 		return 0, errors.New(r)
 	}
+	t := []byte("0\r\n")
 	w.state = writerStateComplete
-	return w.writer.Write([]byte("0\r\n\r\n"))
+	return w.writer.Write(t)
+}
+
+func (w *Writer) WriteTrailers(trailers headers.Headers) error {
+	if r := checkState(w.state, writerStateComplete); r != "" {
+		return errors.New(r)
+	}
+
+	for key, value := range trailers {
+		fmt.Printf("Trailer: %s: %s\n", key, value)
+		_, err := w.writer.Write([]byte(fmt.Sprintf("%s: %s\r\n", key, value)))
+		if err != nil {
+			return err
+		}
+	}
+	fmt.Println("Finished writing trailers")
+	_, err := w.writer.Write([]byte("\r\n"))
+	return err
 }
 
 func checkState(current, requested writerState) string {
